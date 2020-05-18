@@ -83,7 +83,7 @@
 <meta property="og:title" content="shiningWolf&#39;s Blog">
 <meta property="og:url" content="http://yoursite.com/index.html">
 <meta property="og:site_name" content="shiningWolf&#39;s Blog">
-<meta property="article:author" content="John Doe">
+<meta property="article:author" content="shiningWolf">
 <meta name="twitter:card" content="summary">
 
 
@@ -231,7 +231,7 @@
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/05/17/watcher/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="John Doe">
+      <meta itemprop="name" content="shiningWolf">
       <meta itemprop="description" content="">
       <meta itemprop="image" content="/images/avatar.gif">
     </span>
@@ -299,24 +299,16 @@
       
         
           
-            <p>有这么一段代码经常会出现在代码中</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">var pubsub &#x3D; (()&#x3D;&gt;&#123;</span><br><span class="line">  var topics &#x3D; &#123;&#125;;</span><br><span class="line">  function subscribe(topic,fn)&#123;</span><br><span class="line">    if(!topics[topic])&#123;</span><br><span class="line">      topics[topic] &#x3D; [];  </span><br><span class="line">    &#125;</span><br><span class="line">    topics[topic].push(fn);</span><br><span class="line">  &#125;</span><br><span class="line">  function publish(topic,...args)&#123;</span><br><span class="line">    if(!topics[topic])</span><br><span class="line">      return;</span><br><span class="line">    for(let fn of topics[topic])&#123;</span><br><span class="line">      fn(...args);  </span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"> return &#123;</span><br><span class="line">      subscribe,</span><br><span class="line">      publish</span><br><span class="line">  &#125;</span><br><span class="line">&#125;)()</span><br></pre></td></tr></table></figure>
-<p>测试代码</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">pubsub.subscribe(&#39;test&#39;,function(a,b)&#123;  &#x2F;&#x2F;订阅者A订阅了test事件</span><br><span class="line">  console.log(a,b);    </span><br><span class="line">&#125;);</span><br><span class="line">pubsub.publish(&#39;test&#39;,&#39;123&#39;,&#39;HH&#39;);   &#x2F;&#x2F;123  HH（发布者B发布了test事件）</span><br></pre></td></tr></table></figure>
-<p>调用publish后打印出了123 HH。很奇妙的一段代码，当然实际上只是遍历了数组，然后把数组中的所有函数全部执行一遍而已。但是对于一个没读过实现代码的人来说，却是一个神奇的存在，JS居然能订阅发布消息，太酷了。<br>有的时候我会叫他观察者模式，有时候又会叫他发布订阅模式，觉得叫什么都是对的。<br>但是，他们并不一样。<br>###差异<br>在观察者模式中，观察者需要直接订阅目标事件。在目标发出内容改变的事件后，直接接收事件并作出响应。发布订阅模式相比观察者模式<strong>多了个事件通道</strong>，订阅者和发布者不是直接关联的。<br>这段话可以看出<strong>上面的例子是发布订阅模式</strong>。订阅者A和发布者B是通过pubsub这个对象关联起来的，他们没有直接的交流。</p>
-<p>那么真正的观察者模式是怎么样的？</p>
-<blockquote>
-<p>一个或多个观察者对目标的状态感兴趣，通过将自己依附在目标对象上以便注册所感兴趣的内容。目标状态发生改变并且观察者可能对这些改变感兴趣，会发送一个通知消息，调用每个观察者的更新方法。当观察者不再对目标状态感兴趣时，他们可以简单将自己从中分离。</p>
-</blockquote>
-<p>我们来实现下观察者模式。首先是目标的构造函数，他有个数组，用于添加观察者。还有个广播方法，遍历观察者数组后调用他们的update方法：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">class Subject&#123;</span><br><span class="line">  constructor()&#123;</span><br><span class="line">    this.subs &#x3D; [];</span><br><span class="line">  &#125;</span><br><span class="line">  addSub(sub)&#123;</span><br><span class="line">    this.subs.push(sub);</span><br><span class="line">  &#125;</span><br><span class="line">  notify()&#123;</span><br><span class="line">    this.subs.forEach(sub&#x3D;&gt; &#123;</span><br><span class="line">      sub.update();</span><br><span class="line">    &#125;);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>那么观察者就得有个update方法：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">class Observer&#123;</span><br><span class="line">  update()&#123;</span><br><span class="line">    console.log(&#39;update&#39;);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>测试代码</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">let subject &#x3D; new Subject();</span><br><span class="line">let ob &#x3D; new Observer();</span><br><span class="line">&#x2F;&#x2F;目标添加观察者了</span><br><span class="line">subject.addSub(ob);</span><br><span class="line">&#x2F;&#x2F;目标发布消息调用观察者的更新方法了</span><br><span class="line">subject.notify();   &#x2F;&#x2F;update</span><br></pre></td></tr></table></figure>
-<p>可以看到目标和观察者是直接联系在一起的。观察者把自身添加到了目标对象中，可见和发布订阅模式差别还是很大的。在这种模式下，目标更像一个发布者，他让添加进来的所有观察者都执行了update函数，而观察者就像一个订阅者。<br>###优劣<br>个人觉得发布/订阅模式比较简单，使用的也比较广泛。由于他订阅者和发布者不直接关联的特点我们完全可以把管理事件的对象写到一个单独文件中，作为库来使用。发布订阅模式中，双方不知道对方的存在，而观察者模式中，目标和观察者是直接联系起来的。具体选择什么模式，得视场景而定。一般来说，发布/订阅就够用了，简单清晰，符合我们dom事件编程的观念。<br>观察者模式哪里被用到过？vue的双向绑定。下篇就讲一下观察者模式在vue双向绑定实现中的运用。</p>
-
-          
+          有这么一段代码经常会出现在代码中
+1234567891011121314151617181920var pubsub &#x3D; (()&#x3D;&gt;&#123;  var topics &#x3D; &#123;&#125;;  function subscribe(topic,fn)&#
+          ...
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2018/05/17/watcher/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -366,7 +358,7 @@
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/04/27/async%E5%8E%9F%E7%90%86/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="John Doe">
+      <meta itemprop="name" content="shiningWolf">
       <meta itemprop="description" content="">
       <meta itemprop="image" content="/images/avatar.gif">
     </span>
@@ -434,41 +426,18 @@
       
         
           
-            <p>上一篇 <a href="https://www.jianshu.com/p/66c6ab883efc" target="_blank" rel="noopener">Promise</a> 讲述了用Promise来解决回调带来的多嵌套，可读性差的问题。其中有这段话</p>
-<blockquote>
-<p>最理想的方式当然是这样</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&gt;readFile(a,funcA);</span><br><span class="line">&gt;readFile(b,funcB);</span><br><span class="line">&gt;readFile(c,funcC);</span><br><span class="line">&gt;readFile(d,funcD);</span><br></pre></td></tr></table></figure>
-<p>但是他不能保证读完A文件后才读B。</p>
-</blockquote>
-<p>结果ES6又帮你做到了，你不再需要通过添加回调来欺骗自己不能按顺序书写的短处。现在你可以堂堂正正的从上而下写代码。</p>
-<h3 id="语法"><a href="#语法" class="headerlink" title="语法"></a>语法</h3><p>async函数返回一个 Promise 对象，可以使用then方法添加回调函数。<strong>当函数执行的时候，一旦遇到await就会先返回，等到异步操作完成，再接着执行函数体内后面的语句</strong>。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">async function print()&#123;</span><br><span class="line">    return 1;</span><br><span class="line">&#125;</span><br><span class="line">print().then(e &#x3D;&gt; console.log(e));   &#x2F;&#x2F;1</span><br></pre></td></tr></table></figure>
-<p>async函数内部return语句返回的值，会成为then方法回调函数的参数。<br>回到上一篇的例子</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">function readFile(a)&#123;</span><br><span class="line">    return new Promise(resolve&#x3D;&gt;&#123;</span><br><span class="line">          setTimeout(()&#x3D;&gt;&#123;</span><br><span class="line">              console.log(a);</span><br><span class="line">              resolve(a);</span><br><span class="line">          &#125;,500)</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">readFile(&#39;a&#39;)</span><br><span class="line">.then(()&#x3D;&gt;&#123;</span><br><span class="line">   console.log(&#39;b&#39;)</span><br><span class="line">&#125;)</span><br><span class="line">.then(()&#x3D;&gt;&#123;</span><br><span class="line">    console.log(&#39;c&#39;)</span><br><span class="line">&#125;);     &#x2F;&#x2F;a b c</span><br></pre></td></tr></table></figure>
-<p>现在可以写成这样了</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">async function test()&#123;</span><br><span class="line">  await readFile(&#39;a&#39;); </span><br><span class="line">  console.log(&#39;b&#39;);</span><br><span class="line">  console.log(&#39;c&#39;)</span><br><span class="line">&#125;</span><br><span class="line">test();   &#x2F;&#x2F;a b c</span><br></pre></td></tr></table></figure>
-<p>它依旧会按顺序打出a b c。因为async函数执行的时候，遇到await，就会等待readFile函数先完成，再执行后面的代码。这种写法更为简洁，几乎和同步代码的写法一致。语义化很好，就算你没学过这个语法，看到await，也会觉得函数会等待readFile返回结果。<br>再写个测试代码：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">async function test()&#123;</span><br><span class="line">  await readFile(&#39;a&#39;); </span><br><span class="line">  console.log(&#39;b&#39;);</span><br><span class="line">  console.log(&#39;c&#39;)</span><br><span class="line">&#125;</span><br><span class="line">test(); </span><br><span class="line">console.log(&#39;d&#39;);   &#x2F;&#x2F;d a b c</span><br></pre></td></tr></table></figure>
-<p>d的打印没有被await阻塞住，先打印了d。await只会影响async函数内部的执行顺序。<br>###实现原理<br>肯定有人会好奇async是怎样的实现原理，想要理解它，还是得学习生成器（generator）。毕竟async只是generator的语法糖，跳过它直接学习async当然会错过很多。async 就等于<strong>Generator+自动执行器</strong>。<br>#####Generator</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">var x &#x3D; 1;</span><br><span class="line">function *foo()&#123;</span><br><span class="line">  x++;</span><br><span class="line">  yield &#39;hello&#39;;</span><br><span class="line">  x++;</span><br><span class="line">  console.log(x);</span><br><span class="line">&#125;</span><br><span class="line">var  it &#x3D; foo();</span><br></pre></td></tr></table></figure>
-<p>这里并没有打出理想的3。生成器*foo()没有像普通函数一样运行，它只是创建了一个迭代器。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">it.next();  &#x2F;&#x2F;&#123;value：&#39;hello&#39;,done:false&#125; </span><br><span class="line">console.log(x);   &#x2F;&#x2F;2</span><br><span class="line">it.next();  &#x2F;&#x2F;3   &#123;value：undefined,done:true&#125;</span><br></pre></td></tr></table></figure>
-<p>第一次调用next(),会从函数开始位置执行到第一个暂停点(yield处)。它返回了一个对象，<strong>对象的value值就是当前yield的值</strong>。此时执行了一次x++;所以x的值为2。再次执行next()会运行到函数结束。这种方式可以让函数体的代码分段执行。而不再是一调用函数就自动帮你从到尾执行完，需要你手动next()来控制代码的进度。所以用它来处理异步的方式也比较明了了。yield暂停函数体代码，当异步操作完成后再使用next()恢复函数的代码。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">function readFile(a)&#123;</span><br><span class="line">    return new Promise(resolve&#x3D;&gt;&#123;</span><br><span class="line">          setTimeout(()&#x3D;&gt;&#123;</span><br><span class="line">              console.log(a);</span><br><span class="line">              resolve(a);</span><br><span class="line">          &#125;,500)</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br><span class="line">function *foo()&#123;</span><br><span class="line">  var result &#x3D; yield readFile(&#39;a&#39;);</span><br><span class="line">  console.log(&#39;b&#39;);</span><br><span class="line">&#125;</span><br><span class="line">var it &#x3D; foo();</span><br><span class="line">var result &#x3D; it.next();  &#x2F;&#x2F;next返回的value是readFile函数返回的Promise对象</span><br><span class="line">result.value.then(()&#x3D;&gt;&#123;   &#x2F;&#x2F;给Promise对象增加成功的回调</span><br><span class="line">  it.next();   &#x2F;&#x2F;当Promise成功后恢复foo()函数执行</span><br><span class="line">&#125;);  &#x2F;&#x2F;a b</span><br></pre></td></tr></table></figure>
-<p>按顺序打出了a和b。很好理解，执行到readFile的时候暂停了foo函数，直到Promise被解决后调用了next()，才恢复了函数.。虽然foo()函数内部好看了，但是想要控制foo函数的暂停和继续却需要写额外的代码。所以如果有人能帮忙控制就最好不过了，不然我宁愿用Promise。<br>#####自动执行器<br>浏览器可不会帮你管理生成器，你得自己写。可以看到，it.next()返回{value:x,done:false}。根据done的值是可以知道生成器内部代码是否执行完成。那根据他写个递归出来不就美滋滋了。试试。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">function run(g)&#123;</span><br><span class="line">  var res &#x3D; g.next();</span><br><span class="line">  if(!res.done)&#123;</span><br><span class="line">    run(g);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>不对，异步操作还没返回结果，就被你继续执行了。还得改改</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">function run(g)&#123;</span><br><span class="line">  var res &#x3D; g.next(); &#x2F;&#x2F;记住res.value是个promise对象</span><br><span class="line">  if(!res.done)&#123;</span><br><span class="line">    res.value.then(()&#x3D;&gt;&#123;   &#x2F;&#x2F;promise解决了才调用next()继续执行生成器内部函数</span><br><span class="line">      run(g);</span><br><span class="line">    &#125;)  </span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>测试一波</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">function readFile(a)&#123;</span><br><span class="line">    return new Promise(resolve&#x3D;&gt;&#123;</span><br><span class="line">          setTimeout(()&#x3D;&gt;&#123;</span><br><span class="line">              console.log(a);</span><br><span class="line">              resolve(a);</span><br><span class="line">          &#125;,500)</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br><span class="line">function *foo()&#123;</span><br><span class="line">  console.log(&#39;a&#39;)；</span><br><span class="line">  var result &#x3D; yield readFile(&#39;b&#39;);</span><br><span class="line">  console.log(&#39;c&#39;);</span><br><span class="line">&#125;</span><br><span class="line">function run(g)&#123;</span><br><span class="line">  var res &#x3D; g.next(); &#x2F;&#x2F;记住res.value是个promise对象</span><br><span class="line">  if(!res.done)&#123;</span><br><span class="line">    res.value.then(()&#x3D;&gt;&#123;   &#x2F;&#x2F;promise解决了才继续执行生成器内部函数</span><br><span class="line">      run(g);</span><br><span class="line">    &#125;)  </span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line">run(foo()); </span><br><span class="line">console.log(&#39;d&#39;);</span><br></pre></td></tr></table></figure>
-<p>打出了a d b c。完美！第一次执行foo().next()会打印出a。然后生成器内函数暂停。在打出d。定时器到了后再打出b和c。这个简单的自动执行器，是针对yield后面跟着promise对象的情况。实际使用可能不能这么写，它只是帮助你理解。实战可以选择co模块。<br>async 等于<strong>Generator+自动执行器</strong>，现在应该很好理解了。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">async function test()&#123;&#125;;test();</span><br><span class="line">&#x2F;&#x2F;等价于</span><br><span class="line">run((function *test()&#123;&#125;)());</span><br></pre></td></tr></table></figure>
+          上一篇 Promise 讲述了用Promise来解决回调带来的多嵌套，可读性差的问题。其中有这段话
 
-
-
-
-
-          
+最理想的方式当然是这样
+1234&gt;readFile(a,funcA);&gt;readFile(b,funcB);&gt;readFile(c,funcC);&gt;readFile(d,fu
+          ...
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2018/04/27/async%E5%8E%9F%E7%90%86/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -518,7 +487,7 @@
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/04/26/this-md/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="John Doe">
+      <meta itemprop="name" content="shiningWolf">
       <meta itemprop="description" content="">
       <meta itemprop="image" content="/images/avatar.gif">
     </span>
@@ -586,29 +555,16 @@
       
         
           
-            <p>自从看到一句话 “<strong>this的指向取决于是谁调用它</strong>” 后，就再也没有相关问题能难倒我了。别不信，就这么简单。<br>从例子来看：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">var a &#x3D; 2;</span><br><span class="line">function foo()&#123;</span><br><span class="line">  console.log(this.a);</span><br><span class="line">&#125;</span><br><span class="line">foo();     &#x2F;&#x2F;2</span><br></pre></td></tr></table></figure>
-<p>这是最常见的<strong>独立函数调用</strong>。是谁调用了它？当然是window，window.foo嘛。所以this指向了window，window.a自然是2。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">var a &#x3D; 3;</span><br><span class="line">function foo()&#123;</span><br><span class="line">  console.log(this.a);</span><br><span class="line">&#125;</span><br><span class="line">var obj &#x3D; &#123;</span><br><span class="line">  a:2,</span><br><span class="line">  foo:foo</span><br><span class="line">&#125;;</span><br><span class="line">obj.foo();   &#x2F;&#x2F;2</span><br></pre></td></tr></table></figure>
-<p>打印出了2。是谁调用了foo函数？是obj。所以this指向了obj。this.a自然是等于obj.a，等于2。但是这种情况有一点需要注意：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">var a &#x3D; 3;</span><br><span class="line">function foo()&#123;</span><br><span class="line">  console.log(this.a);</span><br><span class="line">&#125;</span><br><span class="line">var obj &#x3D; &#123;</span><br><span class="line">  a:2,</span><br><span class="line">  foo:foo</span><br><span class="line">&#125;;</span><br><span class="line">var func &#x3D; obj.foo;</span><br><span class="line">func ();   &#x2F;&#x2F;3</span><br></pre></td></tr></table></figure>
-<p>什么，打印了3，你居然忽悠我！别急，<strong>func是对obj.foo的一个引用</strong>，实际上引用的还是foo函数本身，所以func()和foo()没两样，因此this指向的是window。打出3也是符合“this的指向取决于是谁调用它”这句观点的。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">function foo()&#123;</span><br><span class="line">  console.log(this.a);</span><br><span class="line">&#125;</span><br><span class="line">var obj &#x3D; &#123;</span><br><span class="line">  a:2</span><br><span class="line">&#125;;</span><br><span class="line">foo.call(obj);   &#x2F;&#x2F;2</span><br></pre></td></tr></table></figure>
-<p>call和apply会强制将this绑定到第一个参数上，foo.call(obj)可以理解为foo函数让obj来调用，所以this会指向obj。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">var a &#x3D; 2;</span><br><span class="line">function foo()&#123;</span><br><span class="line">  this.a &#x3D; 3;</span><br><span class="line">&#125;</span><br><span class="line">var bar &#x3D; new foo();</span><br><span class="line">a;  &#x2F;&#x2F;2；</span><br><span class="line">bar.a;  &#x2F;&#x2F;3;</span><br></pre></td></tr></table></figure>
-<p>这里的foo函数是通过new操作符调用的，它会自动执行以下步骤<br>1、创建一个全新的对象<br>2、这个新对象会执行[[Prototype]]连接<br>3、<strong>这个新对象会绑定到函数调用的this</strong><br>4、如果函数没有返回其他对象，那么new表达式会自动返回这个新的对象<br>所以new 来调用foo的时候，this指向了新的对象，bar。因此this.a修改的是bar的属性。<br>本来这套理论是无敌的，不过ES6出了个箭头函数，那你就把他当个例外，记住就行。它会根据外层作用域来确定this。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">function foo()&#123;</span><br><span class="line">  setTimeout(function()&#123;</span><br><span class="line">    console.log(this.a);</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br><span class="line">var obj &#x3D; &#123;</span><br><span class="line">  a:2</span><br><span class="line">&#125;;</span><br><span class="line">foo.call(obj);  &#x2F;&#x2F;undefined</span><br></pre></td></tr></table></figure>
-<p>输出的undefined，那是因为setTimeout传进的函数其实是window在调用。而a没有被定义，所以打出undefined。可能有人不理解，那我换个写法。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">function fn()&#123;</span><br><span class="line">  console.log(this.a);</span><br><span class="line">&#125;</span><br><span class="line">setTimeout(fn)&#123;   &#x2F;&#x2F;这里不是真正的setTimeout函数，而是模拟内部实现</span><br><span class="line">  fn();    &#x2F;&#x2F;fn显然是被window调用的</span><br><span class="line">&#125;;</span><br><span class="line">setTimeout(fn);   &#x2F;&#x2F;模拟setTimeout函数</span><br></pre></td></tr></table></figure>
-<p>setTimeout会把fn函数塞进事件队列中，当前同步代码执行完后，执行fn()。fn是window在调用，所以this.a等于undefined。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">function setTimeout(fn)&#123;</span><br><span class="line">  fn.call(this);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>这种情况下，回调函数指定了调用它的对象。如果setTimeout内部也是这么实现，那么输出的this.a就可能会有不一样的值。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">function foo()&#123;</span><br><span class="line">  setTimeout(()&#x3D;&gt;&#123;</span><br><span class="line">    console.log(this.a);</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br><span class="line">var obj &#x3D; &#123;</span><br><span class="line">  a:2</span><br><span class="line">&#125;;</span><br><span class="line">foo.call(obj);  &#x2F;&#x2F;2</span><br></pre></td></tr></table></figure>
-<p>使用箭头函数后，打印出的值就成了2。它的this是属于foo()函数的作用域，而foo又是被obj调用的，所以会输出2。<br>现在应该什么this问题都能解释了。但是有一点要注意，严格模式下，独立函数调用时this不会指向window。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">var a &#x3D; 2;</span><br><span class="line">function foo()&#123;</span><br><span class="line">  &quot;use strict&quot;</span><br><span class="line">  console.log(this.a);</span><br><span class="line">&#125;</span><br><span class="line">foo()  &#x2F;&#x2F;Uncaught TypeError: Cannot read property &#39;a&#39; of undefined</span><br></pre></td></tr></table></figure>
-<p>好了，现在已经没有什么能难倒你了。</p>
-
-          
+          自从看到一句话 “this的指向取决于是谁调用它” 后，就再也没有相关问题能难倒我了。别不信，就这么简单。从例子来看：
+12345var a &#x3D; 2;function foo()&#123;  console.log(this.a);&#125;foo();     &#x2F;&#x2F
+          ...
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2018/04/26/this-md/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -658,7 +614,7 @@
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/04/25/hello-world/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="John Doe">
+      <meta itemprop="name" content="shiningWolf">
       <meta itemprop="description" content="">
       <meta itemprop="image" content="/images/avatar.gif">
     </span>
@@ -726,30 +682,17 @@
       
         
           
-            <p>Promise这东西，只会用，没有刻意去了解过。但有时不得不为它带来的便利感到惊叹。用的多了，对他的思想就会有一点了解，越来越觉得和消息订阅模式有异曲同工之妙。</p>
-<p>为什么要有promise呢。以读文件为例：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">var reader &#x3D; new FileReader();</span><br><span class="line">reader.readAsText(file);</span><br><span class="line">reader.onload &#x3D; function(f)&#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>如果想要操作文件内容，就必须得在onload中进行操作。很麻烦，项目中不可能永远写这几行代码，所以封装下</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">function readFile(file,fnc)&#123;</span><br><span class="line">    var  reader &#x3D; new FileReader();</span><br><span class="line">    reader.readAsText(file);</span><br><span class="line">    reader.onload &#x3D; function(f)&#123;</span><br><span class="line">        fnc();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>通过传入fnc函数，让FileReader对象在onload中调用。这种解决异步的方式叫回调。<br>好像promise目前没有出场的必要。<br>直到有一天，老板让你连续读文件，前一个文件读完才允许读下一个，读4个。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">readFile(a,()&#x3D;&gt;&#123;</span><br><span class="line">    readFile(b,()&#x3D;&gt;&#123;</span><br><span class="line">        readFile(c,()&#x3D;&gt;&#123;</span><br><span class="line">              readFile(d,()&#x3D;&gt;&#123;</span><br><span class="line">              &#125;)  </span><br><span class="line">        &#125;)</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
-<p>第一天写完可能还好，记得调用顺序，等过几天再看到这坨估计就要抓狂了。真实代码中更是会夹杂许多逻辑，加上几个if else带来的花括号，想要快速理清这个嵌套关系，说出执行顺序几乎是不可能的。<br>所以，想要编写可维护代码，一种更顺序的写法来解决异步显得十分重要。<br>最理想的方式当然是这样</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">readFile(a,funcA);</span><br><span class="line">readFile(b,funcB);</span><br><span class="line">readFile(c,funcC);</span><br><span class="line">readFile(d,funcD);</span><br></pre></td></tr></table></figure>
-<p>但是他不能保证读完A文件后才读B。<br>突然，你灵机一动，想到了消息订阅模式。不去直接执行读取文件的函数，而是依次添加订阅。这样，顺序性也就解决了。试试！</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">class Mypromise&#123;</span><br><span class="line">    constructor(fn)&#123;</span><br><span class="line">          this._topics&#x3D; [];  &#x2F;&#x2F;管理订阅的事件</span><br><span class="line">          fn(this._resolve.bind(this));  &#x2F;&#x2F;_resolve函数中用到了this，所以这里绑定下，保证能够找到_topics对象</span><br><span class="line">    &#125;</span><br><span class="line">    then(callback)&#123;  &#x2F;&#x2F;添加订阅</span><br><span class="line">          this._topics.push(callback);</span><br><span class="line">          return this;   &#x2F;&#x2F;为了持续添加订阅</span><br><span class="line">    &#125;</span><br><span class="line">     _resolve(val)&#123;  &#x2F;&#x2F;发布消息</span><br><span class="line">          this._topics.forEach(callback&#x3D;&gt;&#123;</span><br><span class="line">               callback(val);   </span><br><span class="line">          &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>使用then函数来添加订阅，resolve函数发布消息。写段测试代码测试下，这里使用简单的定时器来模拟异步操作：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">function readFile(a)&#123;</span><br><span class="line">    return new Mypromise(resolve&#x3D;&gt;&#123;</span><br><span class="line">          setTimeout(()&#x3D;&gt;&#123;</span><br><span class="line">              console.log(a);</span><br><span class="line">              resolve(a);</span><br><span class="line">          &#125;,500)</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">readFile(&#39;a&#39;)</span><br><span class="line">.then(()&#x3D;&gt;&#123;</span><br><span class="line">   console.log(&#39;b&#39;)</span><br><span class="line">&#125;)</span><br><span class="line">.then(()&#x3D;&gt;&#123;</span><br><span class="line">    console.log(&#39;c&#39;)</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
-<p>按顺序打出了a b c。效果已经出来了。这样写我们可以马上看清谁先调用，谁后调用。并且解决了异步问题。<br>有人就有疑问了，如果readFile函数里全是同步代码，你还没有通过.then添加回调函数，你就resolve了，那不就什么函数都没有被调用。<br>记得setTimeout(function(){},0)这个经典面试题吗，它会将在0S后将函数推入事件队列，当前同步代码执行完后，才会开始执行。所以只要用它把_resolve函数内部实现包裹一下，就能解决这个问题。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"> _resolve(val)&#123;  &#x2F;&#x2F;发布消息</span><br><span class="line">    setTimeout(()&#x3D;&gt;&#123;</span><br><span class="line">        this._topics.forEach(callback&#x3D;&gt;&#123;</span><br><span class="line">             callback(val);   </span><br><span class="line">        &#125;)</span><br><span class="line">    &#125;,0)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>这样就能保证所有的.then都执行完再resolve了。<br>Promise最好用的一点是每个then返回的都是一个新的Promise对象，而不是原来的promise实例，如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">let p &#x3D; Promise.resolve(&#39;1&#39;);</span><br><span class="line">p.then(json&#x3D;&gt;&#123;</span><br><span class="line">    console.log(1);   &#x2F;&#x2F;1</span><br><span class="line">    return 2  </span><br><span class="line">&#125;).then(json&#x3D;&gt;&#123;</span><br><span class="line">    console.log(json)   &#x2F;&#x2F;2</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
-<p>第二个会输出2是因为第一个then返回了一个新的Promise对象。第二个then的回调加在了这个新的Promise对象中。所以我们的then函数不能return this，而是要return Mypromise。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">then(callback)&#123;</span><br><span class="line">    this._topics.push(callback);</span><br><span class="line">    return new Mypromise(resolve&#x3D;&gt;&#123;</span><br><span class="line">        resolve(callback());</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>但是这样每次.then的时候立刻执行了callback，显然不符合要求。且没有达成传递的要求。所以衔接前一个promise和后一个promise变得至关重要。<br>其实也简单，调用then函数往_topics塞回调的时候不仅把callback塞进去，也把新生成的promise对象的resolve也塞进去。执行resolve的时候不仅要执行callback,也要执行resolve，即触发下一个then的回调，修改后完整代码如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">class Mypromise&#123;</span><br><span class="line">    constructor(fn)&#123;</span><br><span class="line">        this._topics&#x3D; [];  &#x2F;&#x2F;管理订阅的事件</span><br><span class="line">        fn(this._resolve.bind(this));</span><br><span class="line">    &#125;</span><br><span class="line">    then(callback)&#123;  &#x2F;&#x2F;添加订阅</span><br><span class="line">        return new Mypromise(resolve&#x3D;&gt;&#123;</span><br><span class="line">          this._topics.push(&#123;</span><br><span class="line">              callback:callback,   &#x2F;&#x2F;当前then添加的回调函数</span><br><span class="line">              resolve:resolve   &#x2F;&#x2F;then新生成promise对象的resolve，用于触发该promise回调</span><br><span class="line">          &#125;)</span><br><span class="line">        &#125;);</span><br><span class="line">     &#125;</span><br><span class="line">     _resolve(val)&#123;  &#x2F;&#x2F;发布消息</span><br><span class="line">        setTimeout(()&#x3D;&gt;&#123;</span><br><span class="line">            this._topics.forEach(call&#x3D;&gt;&#123;</span><br><span class="line">                var result &#x3D; call.callback(val);   &#x2F;&#x2F;执行当前promise注册的回调</span><br><span class="line">                call.resolve(result);   &#x2F;&#x2F;触发新生成promise的回调</span><br><span class="line">            &#125;)</span><br><span class="line">        &#125;,0)</span><br><span class="line">     &#125;</span><br><span class="line">&#125;</span><br><span class="line">function readFile(a)&#123;</span><br><span class="line">    return new Mypromise(resolve&#x3D;&gt;&#123;</span><br><span class="line">        setTimeout(()&#x3D;&gt;&#123;</span><br><span class="line">            console.log(a);</span><br><span class="line">            resolve(1);</span><br><span class="line">        &#125;,500)</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">readFile(&#39;a&#39;)</span><br><span class="line">.then(json&#x3D;&gt;&#123;</span><br><span class="line">   console.log(json);</span><br><span class="line">   return 2;</span><br><span class="line">&#125;)</span><br><span class="line">.then(json&#x3D;&gt;&#123;</span><br><span class="line">   console.log(json)</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
-<p>打印出了理想的a,1,2。一个极简的promise就完成了。</p>
-
-          
+          Promise这东西，只会用，没有刻意去了解过。但有时不得不为它带来的便利感到惊叹。用的多了，对他的思想就会有一点了解，越来越觉得和消息订阅模式有异曲同工之妙。
+为什么要有promise呢。以读文件为例：
+1234var reader &#x3D; new FileReader();reader.r
+          ...
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2018/04/25/hello-world/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -818,7 +761,7 @@
         <div class="site-overview">
           <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
             
-              <p class="site-author-name" itemprop="name">John Doe</p>
+              <p class="site-author-name" itemprop="name">shiningWolf</p>
               <p class="site-description motion-element" itemprop="description"></p>
           </div>
 
@@ -883,7 +826,7 @@
   <span class="with-love">
     <i class="fa fa-user"></i>
   </span>
-  <span class="author" itemprop="copyrightHolder">John Doe</span>
+  <span class="author" itemprop="copyrightHolder">shiningWolf</span>
 
   
 </div>
